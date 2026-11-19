@@ -75,3 +75,8 @@ progress { display:block; width:min(100%,400px); height:9px; margin:8px auto; ac
 #feedback:empty { display:none; }
 @media(max-width:390px) { .buttons button { width:100%; } }
 @media(prefers-reduced-motion:reduce) { .rolling .die { animation:none; } }
+
+.invite > * + * { margin-top: 10px; }
+.invite-qr { width: min(100%, 230px); margin-inline: auto; }
+.invite-qr svg { display: block; width: 100%; height: auto; aspect-ratio: 1; border-radius: 10px; }
+.invite time { font-variant-numeric: tabular-nums; }

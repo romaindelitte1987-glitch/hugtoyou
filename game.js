@@ -8,11 +8,13 @@ export class GameError extends Error {
 }
 
 export const token = () => crypto.randomUUID().replaceAll("-", "");
+const inviteMs = 15 * 60_000;
+export const inviteDeadline = room => room.inviteExpiresAt ?? room.expiresAt;
 const random = count => crypto.getRandomValues(new Uint32Array(1))[0] % count;
 
 export function createRoom(now) {
   return { keys: [token(), token()], players: [null, null], expiresAt: now + roomMs,
-    phase: "lobby", turn: 0, turnId: 0, reveal: 0, end: 0, mission: null, note: "" };
+    inviteExpiresAt: now + inviteMs, phase: "lobby", turn: 0, turnId: 0, reveal: 0, end: 0, mission: null, note: "" };
 }
 
 function match(room, giver) {
@@ -90,6 +92,12 @@ export function move(room, slot, body, now, pick = random) {
     room.players[slot] = { name, give: [], take: [], saved: false, ready: false, hearts: 3, gems: 2 };
     return true;
   }
+  if (action === "renew-invite" && slot === 0 && player && !other && room.phase === "lobby") {
+    if (inviteDeadline(room) > now) return false;
+    room.keys[1] = token();
+    room.inviteExpiresAt = Math.min(now + inviteMs, room.expiresAt);
+    return true;
+  }
   if (!player || !other) throw new GameError("Les deux prénoms sont nécessaires.");
   if (action === "stop" && room.phase !== "lobby" && room.phase !== "ended") {
     finish(room, player.name + " a arrêté la partie.");
@@ -142,7 +150,10 @@ export function snapshot(room, slot, now) {
   const other = room.players[1 - slot];
   const mine = room.turn === slot;
   const live = room.phase !== "lobby" && room.phase !== "ended";
-  return { me, other: other && { name: other.name, ready: other.ready, saved: other.saved },
+  const invite = slot === 0 && !other
+    ? { key: room.keys[1], expiresAt: inviteDeadline(room) }
+    : null;
+  return { me, invite, other: other && { name: other.name, ready: other.ready, saved: other.saved },
     compatible: Boolean(me?.saved && other?.saved && match(room, 0).length && match(room, 1).length),
     phase: live && !mine ? "waiting" : room.phase, turnName: room.players[room.turn]?.name,
     mine, turnId: room.turnId, reveal: room.reveal, end: room.end, now,

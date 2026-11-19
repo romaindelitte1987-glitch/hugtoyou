@@ -1,10 +1,13 @@
 import { actions, zones, decisionMs } from "./rules.js";
+import qrcode from "./vendor/qrcode.mjs";
 
 const app = document.querySelector("#app");
 const feedback = document.querySelector("#feedback");
 const hash = new URLSearchParams(location.hash.slice(1));
 const id = hash.get("salon");
-const key = hash.get("joueur");
+let key = hash.get("joueur");
+const pendingKeyName = "participant:" + id + ":" + key;
+let participantKey = id && key ? sessionStorage.getItem(pendingKeyName) : null;
 let state;
 let signature = "";
 let offset = 0;
@@ -38,7 +41,7 @@ function notify(text, sticky = false) {
 async function api(action, fields) {
   const response = await fetch("/api", {
     method:"POST", headers:{"content-type":"application/json"}, signal:AbortSignal.timeout(5000),
-    body: JSON.stringify({ id, key, action, ...fields })
+    body: JSON.stringify({ id, key, action, participantKey, ...fields })
   });
   const data = await response.json();
   if (!response.ok) throw Object.assign(new Error(data.error), { status: response.status });
@@ -53,6 +56,12 @@ function schedule(ms) {
 function apply(data, start, number) {
   if (number < appliedRequest) return;
   appliedRequest = number;
+  if (data.participantKey) {
+    key = data.participantKey;
+    history.replaceState(null, "", url(id, key));
+    sessionStorage.removeItem(pendingKeyName);
+    participantKey = null;
+  }
   state = data;
   offset = data.now - (start + Date.now()) / 2;
   render();
@@ -69,10 +78,11 @@ async function poll() {
     if (disconnected) notify("");
     disconnected = false;
   } catch (error) {
+    if (number < requestNumber) return;
     if (error.status === 404) {
       stopped = true;
       notify("");
-      show(panel('<h1>Lien expiré</h1><p>Ce salon est introuvable ou a expiré.</p><a class="button" href="/">Accueil</a>', "centered"));
+      show(panel('<h1>Lien expiré</h1><p>Cette invitation a expiré ou a déjà été utilisée. Demande un lien valide à la personne qui t’invite.</p><a class="button" href="/">Accueil</a>', "centered"));
     } else {
       disconnected = true;
       notify("Connexion interrompue. Reconnexion en cours…", true);
@@ -114,7 +124,8 @@ function join() {
     '<button class="primary">Entrer dans le salon</button></form>', "centered"));
 }
 
-function choices(direction, label, values, open) {
+function choices(direction, label, values, saved) {
+  const open = !saved;
   return '<details' + (open ? " open" : "") + '><summary>' + label + '</summary>' +
     '<table><thead><tr><th scope="col">Zone</th><th scope="col">Papouiller</th><th scope="col">Embrasser</th></tr></thead><tbody>' +
     zones.map(([zone], index) => '<tr><th scope="row">' + zone + '</th>' +
@@ -122,7 +133,7 @@ function choices(direction, label, values, open) {
         const value = index * actions.length + column;
         return '<td><label><input type="checkbox" name="' + direction + '" value="' + value +
           '" aria-label="' + label + ' · ' + zone + ' · ' + action + '"' +
-          (values.includes(value) ? " checked" : "") + '></label></td>';
+          (!saved || values.includes(value) ? " checked" : "") + '></label></td>';
       }).join("") + '</tr>').join("") + '</tbody></table></details>';
 }
 
@@ -137,19 +148,34 @@ function lobbyStatus() {
   ready.disabled = draft || me.ready || !compatible;
   ready.textContent = me.ready && !draft ? "En attente de " + other.name : "HugToYou";
   document.querySelector("#lobby-hint").textContent = draft || !me.saved
-    ? "Coche les actions que tu acceptes, puis valide tes choix."
+    ? "Décoche ce qui ne te convient pas dans chaque liste, puis valide tes choix."
     : !other.saved ? "En attente des choix de " + other.name + "."
     : compatible ? "Appuyez tous les deux sur HugToYou pour démarrer."
     : "Il faut au moins une mission compatible dans chaque sens. Ajustez vos choix.";
 }
 
-function lobby() {
-  const { me, other } = state;
-  const invite = sessionStorage.getItem("invite:" + id);
-  const link = invite && !other ? '<div class="invite"><label for="invite">Lien privé à envoyer à l’autre personne</label>' +
-    '<input type="text" id="invite" readonly value="' + esc(url(id, invite)) + '">' + button("copy", "Copier le lien") + '</div>' : "";
+function invitation(invite, now) {
+  if (!invite) return "";
+  if (invite.expiresAt <= now) {
+    return '<div class="invite"><p>L’invitation a expiré.</p>' +
+      button("renew-invite", "Créer une nouvelle invitation") + '</div>';
+  }
+  const link = url(id, invite.key);
+  const qr = qrcode(0, "M");
+  qr.addData(link);
+  qr.make();
+  return '<div class="invite"><h2>Inviter l’autre personne</h2>' +
+    '<div class="invite-qr">' + qr.createSvgTag({ scalable: true, title: "QR code d’invitation à scanner" }) + '</div>' +
+    '<p>Scanne ce code avec l’autre téléphone ou partage le lien.</p>' +
+    '<label for="invite">Lien privé</label><input type="text" id="invite" readonly value="' + esc(link) + '">' +
+    button("copy", "Copier le lien") + '<p>Invitation à usage unique · expire dans <time id="invite-clock"></time></p></div>';
+}
+
+function lobby(now) {
+  const { me, other, invite } = state;
+  const link = invitation(invite, now);
   const form = other ? '<form id="choices"><h2>Mes choix avec ' + esc(other.name) + '</h2><p id="lobby-hint"></p>' +
-    choices("give", "J’accepte de donner", me.give, !me.saved) + choices("take", "J’accepte de recevoir", me.take, !me.saved) +
+    choices("give", "J’accepte de donner", me.give, me.saved) + choices("take", "J’accepte de recevoir", me.take, me.saved) +
     '<div class="buttons"><button>Valider mes choix</button>' + button("ready", "HugToYou", "primary") + '</div></form>' : "";
   show(panel('<p class="eyebrow">SALON PRIVÉ</p><h1>À deux</h1><ul class="players"><li>' + esc(me.name) +
     ' (toi)<small id="self-status"></small></li><li>' + esc(other?.name ?? "Autre personne") +
@@ -206,14 +232,15 @@ function render() {
   if (!state) return;
   const now = Date.now() + offset;
   const next = JSON.stringify([Boolean(state.me), state.phase, state.other?.name, state.turnId,
-    now >= state.reveal, now >= (state.mission?.reveal ?? 0), state.note]);
+    now >= state.reveal, now >= (state.mission?.reveal ?? 0), state.note,
+    state.invite?.key, state.invite && now >= state.invite.expiresAt]);
   if (next === signature) {
     if (state.me && state.phase === "lobby") lobbyStatus();
     return;
   }
   signature = next;
   if (!state.me) join();
-  else if (state.phase === "lobby") lobby();
+  else if (state.phase === "lobby") lobby(now);
   else if (state.phase === "ended") {
     show(panel('<h1>Partie terminée</h1><p>' + esc(state.note) + '</p><a href="/" class="button">Retour à l’accueil</a>', "centered"));
   } else game(now);
@@ -221,6 +248,8 @@ function render() {
 
 function timers() {
   const now = Date.now() + offset;
+  const inviteClock = document.querySelector("#invite-clock");
+  if (inviteClock) inviteClock.textContent = clock(lastSeconds(state.invite.expiresAt, now));
   const gameClock = document.querySelector("#game-clock");
   if (gameClock) gameClock.textContent = clock(lastSeconds(state.end, now));
   const missionClock = document.querySelector("#mission-clock");
@@ -235,8 +264,14 @@ function timers() {
 app.addEventListener("submit", event => {
   event.preventDefault();
   const data = new FormData(event.target);
-  if (event.target.id === "join") send("join", { name: data.get("name") });
-  else if (event.target.id === "choices") {
+  if (event.target.id === "join") {
+    if (state.needsParticipantKey && !participantKey) {
+      participantKey = Array.from(crypto.getRandomValues(new Uint8Array(16)), byte =>
+        byte.toString(16).padStart(2, "0")).join("");
+      sessionStorage.setItem(pendingKeyName, participantKey);
+    }
+    send("join", { name: data.get("name") });
+  } else if (event.target.id === "choices") {
     send("choices", { give: data.getAll("give").map(Number), take: data.getAll("take").map(Number) });
   }
 });
@@ -254,7 +289,6 @@ app.addEventListener("click", async event => {
     target.disabled = true;
     try {
       const room = await api("create");
-      sessionStorage.setItem("invite:" + room.id, room.invite);
       location.assign(url(room.id, room.key));
     } catch {
       notify("Impossible de créer le salon pour le moment.");
@@ -278,7 +312,7 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) sche
 if (id && key) {
   poll();
   setInterval(() => {
-    if (stopped || !state || ["ended","lobby"].includes(state.phase)) return;
+    if (stopped || !state || state.phase === "ended" || (state.phase === "lobby" && !state.invite)) return;
     render();
     timers();
   }, 100);

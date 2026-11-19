@@ -8,6 +8,7 @@ const assets = new Map([
   ["/", ["index.html", "text/html"]],
   ["/app.js", ["app.js", "text/javascript"]],
   ["/rules.js", ["rules.js", "text/javascript"]],
+  ["/vendor/qrcode.mjs", ["vendor/qrcode.mjs", "text/javascript"]],
   ["/style.css", ["style.css", "text/css"]]
 ]);
 const headers = {

@@ -8,13 +8,13 @@ Jeu synchronisé à deux. Chaque salon a deux liens privés distincts.
 2. Double-cliquez sur `Lancer-HugToYou.cmd` et laissez la fenêtre ouverte.
 3. Ouvrez [http://localhost:8787](http://localhost:8787), cliquez sur **Créer un salon privé**, puis saisissez le premier prénom.
 4. Copiez le lien d’invitation dans un deuxième onglet et saisissez le second prénom.
-5. Dans les deux onglets, cochez par exemple **Mains → Papouiller** dans **J’accepte de donner** et **J’accepte de recevoir**. Validez, puis appuyez sur **HugToYou** dans chaque onglet.
+5. Dans les deux onglets, décochez ce qui ne vous convient pas dans **J’accepte de donner** et **J’accepte de recevoir**. Validez, puis appuyez sur **HugToYou** dans chaque onglet.
 
 Sous macOS ou Linux, lancez `node server.js` depuis le dossier, puis ouvrez la même adresse.
 
 ## Essayer sur deux téléphones
 
-Une fois l’application hébergée en HTTPS, ouvrez son adresse depuis le premier téléphone. Créez le salon, puis ouvrez le lien d’invitation depuis le deuxième téléphone. Pour un essai local sur le même Wi-Fi, lancez `$env:HOST="0.0.0.0"; node server.js` dans PowerShell et utilisez l’adresse IP locale du PC à la place de `localhost` (port 8787). Le pare-feu doit permettre la connexion sur le réseau privé. Si le bouton de copie est limité en HTTP, copiez le lien affiché manuellement.
+Une fois l’application hébergée en HTTPS, ouvrez son adresse depuis le premier téléphone. Créez le salon, puis ouvrez le lien d’invitation ou scannez le QR code depuis le deuxième téléphone. L’invitation expire après 15 minutes ou dès que l’autre personne rejoint le salon. Pour un essai local sur le même Wi-Fi, lancez `$env:HOST="0.0.0.0"; node server.js` dans PowerShell et utilisez l’adresse IP locale du PC à la place de `localhost` (port 8787). Le pare-feu doit permettre la connexion sur le réseau privé. Si le bouton de copie est limité en HTTP, copiez le lien affiché manuellement.
 
 ## Règles de cette version
 
