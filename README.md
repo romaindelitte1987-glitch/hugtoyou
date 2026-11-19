@@ -8,7 +8,7 @@ Jeu synchronisé à deux. Chaque salon a deux liens privés distincts.
 2. Double-cliquez sur `Lancer-HugToYou.cmd` et laissez la fenêtre ouverte.
 3. Ouvrez [http://localhost:8787](http://localhost:8787), cliquez sur **Créer un salon privé**, puis saisissez le premier prénom.
 4. Copiez le lien d’invitation dans un deuxième onglet et saisissez le second prénom.
-5. Dans les deux onglets, décochez ce qui ne vous convient pas dans **J’accepte de donner** et **J’accepte de recevoir**. Validez, puis appuyez sur **HugToYou** dans chaque onglet.
+5. Dans les deux onglets, ajustez vos choix dans le tableau. Appuyez sur une icône pour passer de **Donner et recevoir** à **Recevoir**, puis **Donner**. Validez, puis appuyez sur **HugToYou** dans chaque onglet.
 
 Sous macOS ou Linux, lancez `node server.js` depuis le dossier, puis ouvrez la même adresse.
 

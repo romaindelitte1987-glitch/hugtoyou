@@ -124,17 +124,59 @@ function join() {
     '<button class="primary">Entrer dans le salon</button></form>', "centered"));
 }
 
-function choices(direction, label, values, saved) {
-  const open = !saved;
-  return '<details' + (open ? " open" : "") + '><summary>' + label + '</summary>' +
-    '<table><thead><tr><th scope="col">Zone</th><th scope="col">Papouiller</th><th scope="col">Embrasser</th></tr></thead><tbody>' +
-    zones.map(([zone], index) => '<tr><th scope="row">' + zone + '</th>' +
-      actions.map(([action], column) => {
-        const value = index * actions.length + column;
-        return '<td><label><input type="checkbox" name="' + direction + '" value="' + value +
-          '" aria-label="' + label + ' · ' + zone + ' · ' + action + '"' +
-          (!saved || values.includes(value) ? " checked" : "") + '></label></td>';
-      }).join("") + '</tr>').join("") + '</tbody></table></details>';
+const choiceModes = {
+  both: { label: "Donner et recevoir", next: "receive", icon: '<svg aria-hidden="true" viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" d="M11.5 15a.5.5 0 0 0 .5-.5V2.707l3.146 3.147a.5.5 0 0 0 .708-.708l-4-4a.5.5 0 0 0-.708 0l-4 4a.5.5 0 1 0 .708.708L11 2.707V14.5a.5.5 0 0 0 .5.5m-7-14a.5.5 0 0 1 .5.5v11.793l3.146-3.147a.5.5 0 0 1 .708.708l-4 4a.5.5 0 0 1-.708 0l-4-4a.5.5 0 0 1 .708-.708L4 13.293V1.5a.5.5 0 0 1 .5-.5"/></svg>' },
+  receive: { label: "Recevoir", next: "give", icon: '<svg aria-hidden="true" viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" d="M.172 15.828a.5.5 0 0 0 .707 0l4.096-4.096V14.5a.5.5 0 1 0 1 0v-3.975a.5.5 0 0 0-.5-.5H1.5a.5.5 0 0 0 0 1h2.768L.172 15.121a.5.5 0 0 0 0 .707M15.828.172a.5.5 0 0 0-.707 0l-4.096 4.096V1.5a.5.5 0 1 0-1 0v3.975a.5.5 0 0 0 .5.5H14.5a.5.5 0 0 0 0-1h-2.768L15.828.879a.5.5 0 0 0 0-.707"/></svg>' },
+  give: { label: "Donner", next: "both", icon: '<svg aria-hidden="true" viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" d="M5.828 10.172a.5.5 0 0 0-.707 0l-4.096 4.096V11.5a.5.5 0 0 0-1 0v3.975a.5.5 0 0 0 .5.5H4.5a.5.5 0 0 0 0-1H1.732l4.096-4.096a.5.5 0 0 0 0-.707m4.344-4.344a.5.5 0 0 0 .707 0l4.096-4.096V4.5a.5.5 0 1 0 1 0V.525a.5.5 0 0 0-.5-.5H11.5a.5.5 0 0 0 0 1h2.768l-4.096 4.096a.5.5 0 0 0 0 .707"/></svg>' },
+  none: { label: "Aucun choix enregistré pour cette action", next: "both", icon: '<span aria-hidden="true">—</span>' }
+};
+
+function choiceLabel(label, mode) {
+  return label + " · " + choiceModes[mode].label;
+}
+
+function choices({ give, take, saved }) {
+  const legend = ["both", "receive", "give"].map(mode => {
+    const { icon, label } = choiceModes[mode];
+    return "<li>" + icon + "<span>" + label + "</span></li>";
+  }).join("");
+  const header = actions.map(([action]) => '<th scope="col">' + action + '</th>').join("");
+  const rows = zones.map(([zone], row) => {
+    const cells = actions.map(([action], column) => {
+      const value = row * actions.length + column;
+      const gives = !saved || give.includes(value);
+      const receives = !saved || take.includes(value);
+      const mode = gives ? (receives ? "both" : "give") : (receives ? "receive" : "none");
+      const label = zone + " · " + action;
+      return '<td><button type="button" class="choice-toggle" data-action="cycle-choice" data-choice="' +
+        value + '" data-label="' + esc(label) + '" data-mode="' + mode + '" aria-label="' +
+        esc(choiceLabel(label, mode)) + '">' + choiceModes[mode].icon + '</button></td>';
+    }).join("");
+    return '<tr><th scope="row">' + zone + '</th>' + cells + '</tr>';
+  }).join("");
+  return '<ul class="choice-legend" aria-label="Légende des icônes">' + legend + '</ul>' +
+    '<table class="choice-table" aria-label="Choix par zone et par action"><thead><tr><th scope="col">Zone</th>' +
+    header + '</tr></thead><tbody>' + rows + '</tbody></table>';
+}
+
+function cycleChoice(control) {
+  const mode = choiceModes[control.dataset.mode].next;
+  control.dataset.mode = mode;
+  control.innerHTML = choiceModes[mode].icon;
+  control.setAttribute("aria-label", choiceLabel(control.dataset.label, mode));
+  draft = true;
+  lobbyStatus();
+}
+
+function selectedChoices(form) {
+  const give = [];
+  const take = [];
+  for (const control of form.querySelectorAll("[data-choice]")) {
+    const { choice, mode } = control.dataset;
+    if (mode === "both" || mode === "give") give.push(Number(choice));
+    if (mode === "both" || mode === "receive") take.push(Number(choice));
+  }
+  return { give, take };
 }
 
 const description = player => !player ? "En attente" : player.ready ? "Prêt à jouer" : player.saved ? "Choix validés" : "Dans le salon";
@@ -148,7 +190,7 @@ function lobbyStatus() {
   ready.disabled = draft || me.ready || !compatible;
   ready.textContent = me.ready && !draft ? "En attente de " + other.name : "HugToYou";
   document.querySelector("#lobby-hint").textContent = draft || !me.saved
-    ? "Décoche ce qui ne te convient pas dans chaque liste, puis valide tes choix."
+    ? "Appuie sur une icône pour changer ton choix, puis valide le tableau."
     : !other.saved ? "En attente des choix de " + other.name + "."
     : compatible ? "Appuyez tous les deux sur HugToYou pour démarrer."
     : "Il faut au moins une mission compatible dans chaque sens. Ajustez vos choix.";
@@ -175,7 +217,7 @@ function lobby(now) {
   const { me, other, invite } = state;
   const link = invitation(invite, now);
   const form = other ? '<form id="choices"><h2>Mes choix avec ' + esc(other.name) + '</h2><p id="lobby-hint"></p>' +
-    choices("give", "J’accepte de donner", me.give, me.saved) + choices("take", "J’accepte de recevoir", me.take, me.saved) +
+    choices(me) +
     '<div class="buttons"><button>Valider mes choix</button>' + button("ready", "HugToYou", "primary") + '</div></form>' : "";
   show(panel('<p class="eyebrow">SALON PRIVÉ</p><h1>À deux</h1><ul class="players"><li>' + esc(me.name) +
     ' (toi)<small id="self-status"></small></li><li>' + esc(other?.name ?? "Autre personne") +
@@ -263,8 +305,8 @@ function timers() {
 
 app.addEventListener("submit", event => {
   event.preventDefault();
-  const data = new FormData(event.target);
   if (event.target.id === "join") {
+    const data = new FormData(event.target);
     if (state.needsParticipantKey && !participantKey) {
       participantKey = Array.from(crypto.getRandomValues(new Uint8Array(16)), byte =>
         byte.toString(16).padStart(2, "0")).join("");
@@ -272,20 +314,16 @@ app.addEventListener("submit", event => {
     }
     send("join", { name: data.get("name") });
   } else if (event.target.id === "choices") {
-    send("choices", { give: data.getAll("give").map(Number), take: data.getAll("take").map(Number) });
-  }
-});
-app.addEventListener("change", event => {
-  if (event.target.form?.id === "choices") {
-    draft = true;
-    lobbyStatus();
+    send("choices", selectedChoices(event.target));
   }
 });
 app.addEventListener("click", async event => {
   const target = event.target.closest("button[data-action]");
   if (!target) return;
   const { action } = target.dataset;
-  if (action === "create") {
+  if (action === "cycle-choice") {
+    if (!submitting) cycleChoice(target);
+  } else if (action === "create") {
     target.disabled = true;
     try {
       const room = await api("create");

@@ -44,15 +44,20 @@ input[type="text"] { display:block; width:100%; min-height:46px; padding:9px 12p
 form#join { max-width:350px; margin-inline:auto; text-align:left; }
 #join button { width:100%; }
 .players { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; padding:0; list-style:none; }
-.players li,.invite,details { border:1px solid var(--line); border-radius:13px; background:#2d1c27; padding:11px; overflow-wrap:anywhere; }
+.players li,.invite { border:1px solid var(--line); border-radius:13px; background:#2d1c27; padding:11px; overflow-wrap:anywhere; }
 .players small { display:block; color:var(--muted); }
-details { padding:0; }
-summary { padding:12px; font-weight:650; cursor:pointer; }
-table { width:100%; border-collapse:collapse; text-align:center; font-size:14px; }
-th,td { border-top:1px solid #ffffff24; padding:5px 3px; }
-th[scope=row] { text-align:left; padding-left:11px; }
-td label { display:grid; min-height:37px; place-items:center; cursor:pointer; }
-input[type=checkbox] { width:19px; height:19px; accent-color:var(--rose); }
+.choice-legend { display:flex; flex-wrap:wrap; gap:6px 14px; list-style:none; padding:0; color:var(--muted); font-size:13px; }
+.choice-legend li { display:inline-flex; align-items:center; gap:6px; }
+.choice-legend svg { width:16px; height:16px; flex:none; color:var(--rose); }
+.choice-table { width:100%; border-collapse:separate; border-spacing:0; text-align:center; font-size:14px; }
+.choice-table th, .choice-table td { padding:3px; border-bottom:1px solid #ffffff24; }
+.choice-table th[scope=row], .choice-table thead th:first-child { text-align:left; padding-left:8px; }
+.choice-table thead th { position:sticky; top:0; z-index:1; padding-block:10px; background:#35212d; }
+.choice-toggle { width:44px; min-height:44px; padding:0; color:var(--rose); background:#35212d; }
+.choice-toggle svg { width:18px; height:18px; }
+.choice-toggle[data-mode="receive"] { color:#f1b6df; }
+.choice-toggle[data-mode="give"] { color:#edd1a8; }
+.choice-toggle[data-mode="none"] { color:var(--muted); }
 .buttons,.stats { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
 #choices .buttons { justify-content:flex-start; }
 .stats { gap:17px; color:var(--rose); font-size:22px; }
